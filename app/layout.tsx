@@ -16,6 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <title>Benjamin Rose</title>
       <head>
         <link
           rel="apple-touch-icon"
