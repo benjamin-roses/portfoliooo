@@ -1,91 +1,73 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FunkySquareRenderer } from "./FunkySquareRenderer";
 
-export class CanvasController {
-  private readonly ctx: CanvasRenderingContext2D;
-  private frame = 0;
-  private squarePad = 7;
-  private squareSize = this.canvas.width / 200;
-  private stopped = false;
+export const Background = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [controller, setController] = useState<
+    FunkySquareRenderer | undefined
+  >();
+  const [dimensions, setDimensions] = useState<[number, number] | undefined>(
+    undefined
+  );
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
-    this.ctx = canvas.getContext("2d")!;
-  }
-
-  public async start() {
-    // find offset
-    // set offset
-    // draw
-    this.draw();
-  }
-
-  public stop() {
-    this.stopped = true;
-  }
-
-  private draw() {
-    if (this.stopped) {
+  useEffect(() => {
+    if (typeof window === "undefined") {
       return;
     }
 
-    const squareColCount = Math.floor(
-      this.canvas.width / (this.squareSize + this.squarePad)
-    );
-
-    const squareRowCount = Math.floor(
-      this.canvas.height / (this.squareSize + this.squarePad)
-    );
-
-    for (let i = 0; i < squareColCount; i++) {
-      for (let j = 0; j < squareRowCount; j++) {
-        this.ctx.fillStyle = `hsl(${Math.floor(
-          (i * squareColCount + j) * (360 / squareColCount ** 2) +
-            this.frame +
-            i +
-            j
-        )}, 40%, ${25 + Math.floor(Math.sin(Date.now() / 2500) * 7)}%)`;
-
-        this.ctx.fillRect(
-          i * (this.squareSize + this.squarePad),
-          j * (this.squareSize + this.squarePad),
-          this.squareSize,
-          this.squareSize
-        );
+    let timeout: NodeJS.Timeout | undefined;
+    const resizeHandler = () => {
+      if (!containerRef.current) {
+        return;
       }
-    }
 
-    this.frame++;
-    setTimeout(() => requestAnimationFrame(this.draw.bind(this)), 10);
-  }
-}
+      timeout && clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setDimensions([
+          containerRef.current?.clientWidth ?? 0,
+          containerRef.current?.clientHeight ?? 0,
+        ]);
+      }, 200);
+    };
 
-export const Background = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [controller, setController] = useState<CanvasController | undefined>();
+    window.addEventListener("resize", resizeHandler);
+
+    return () => {
+      window.removeEventListener("resize", resizeHandler);
+    };
+  }, []);
 
   useLayoutEffect(() => {
-    if (ref.current) {
+    if (containerRef.current && dimensions) {
       const canvas = document.createElement("canvas");
-      canvas.height = ref.current.clientHeight;
-      canvas.width = ref.current.clientWidth;
-      ref.current.appendChild(canvas);
 
-      const controller = new CanvasController(canvas);
-      controller.start();
+      canvas.width = dimensions[0];
+      canvas.height = dimensions[1];
+      containerRef.current.appendChild(canvas);
 
-      setController(new CanvasController(canvas));
+      const newController = new FunkySquareRenderer(canvas);
+      newController.start();
+
+      setController(newController);
+      containerRef.current.innerHTML = "";
+      containerRef.current.appendChild(canvas);
+    } else if (containerRef.current) {
+      setDimensions([
+        containerRef.current?.clientWidth ?? 0,
+        containerRef.current?.clientHeight ?? 0,
+      ]);
     }
 
     return undefined;
-  }, [ref]);
+  }, [containerRef, dimensions]);
 
   useEffect(() => {
     return () => {
       controller?.stop?.();
     };
   }, [controller]);
-
-  console.log(controller);
 
   return (
     <div
@@ -97,7 +79,7 @@ export const Background = () => {
         transitionDuration: "3000ms",
         opacity: controller ? 1 : 0,
       }}
-      ref={ref}
+      ref={containerRef}
     ></div>
   );
 };
